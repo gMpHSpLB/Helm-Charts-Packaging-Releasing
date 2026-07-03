@@ -1,0 +1,362 @@
+# --------------------------------------------------------------------------------------------
+#							Project : Helm-Chart-Packaging-Releasing
+# --------------------------------------------------------------------------------------------
+# Practical use-case mapping:
+#
+# | Area                   | Scenario                                               | What it proves                                |
+# | ---------------------- | ------------------------------------------------------ | --------------------------------------------- |
+# | Chart package manager  | Build and package myapp chart                          | You can create distributable Helm artifacts   |
+# | Release manager        | Deploy to dev/staging/prod with separate release names | You understand environment isolation          |
+# | Registry operations    | Add, push, pull, inspect chart info                    | You understand approved artifact distribution |
+# | Dependency management  | Parent chart consumes Redis/PostgreSQL subchart        | You understand reproducible chart composition |
+# | Environment inspection | Use helm env, helm list, helm status                   | You can troubleshoot runtime and client setup |
+# | Versioning strategy    | Bump chart version and appVersion separately           | You understand release governance             |
+#
+# Practical Mind map:
+# mindmap
+#   root((Helm Portfolio Lab))
+#     Package Manager
+#       Scaffold chart
+#       Lint chart
+#       Template locally
+#       Package chart
+#       Show chart info
+#       Show default values
+#       Push to registry
+#       Pull from registry
+#     Release Manager
+#       Install release
+#       Upgrade release
+#       Upgrade --install
+#       History
+#       Manifest inspection
+#       Values inspection
+#       Status check
+#       Rollback
+#       Test hooks
+#     Versioning
+#       Chart version
+#       App version
+#       SemVer
+#       Immutable artifacts
+#       Release promotion
+#     CI-CD
+#       Lint stage
+#       Template stage
+#       Test stage
+#       Package stage
+#       Push stage
+#       Deploy dev
+#       Promote staging
+#       Promote prod
+#       Diff before upgrade
+#     Registry Operations
+#       Registry login
+#       Add repo
+#       Update repo
+#       Search repo
+#       Show chart metadata
+#       Pull chart artifact
+#
+# Suggested CI/CD pipeline
+# 	A realistic pipeline can be:
+# 	PR pipeline: lint, template, dependency build, test.
+# 	Build pipeline: package chart, push to registry, publish version metadata.
+# 	Deploy pipeline: pull chart, upgrade dev, run tests, promote to staging, approve prod.
+# 	Ops pipeline: status, history, diff, rollback, env inspection.
+#
+# --------------------------------------------------------------------------------------------
+# Use Bash for shell commands in recipes.
+# This gives us better shell features than plain sh.
+SHELL := /bin/bash
+
+# Default target
+.DEFAULT_GOAL := help
+.PHONY: help
+# Self-documenting help: list targets with "##" comments
+help: ## Show all available targets with short descriptions.
+	# This target reads the Makefile and prints any line ending with ##.
+	# Use this when you want to discover available commands quickly.
+	# Expected output: a list of targets and one-line descriptions.
+	@awk 'BEGIN {FS = ":.*##"; printf "\nUsage:\n  make <target>\n\nTargets:\n"} /^[a-zA-Z0-9_.-]+:.*##/ { printf "  %-28s --> %s\n", $$1, $$2 }' $(MAKEFILE_LIST)
+
+.PHONY: 
+
+# ------------------------------------------------------------------------------------------------------------------
+# ---------- GLOBAL CONFIG -----------------------------------------------------------------------------------------
+# Load secrets from .secrets if present
+# What this does:
+# 	- If .secrets exists, include it so GHCR_USERNAME and GHCR_PAT become Make variables.
+# 	- export the variable names parsed from the file so they are available to shell commands run by Make.
+SECRETS_FILE ?= .secrets
+
+ifneq ("$(wildcard $(SECRETS_FILE))","")
+include $(SECRETS_FILE)
+export $(shell sed -n 's/^\([A-Za-z_][A-Za-z0-9_]*\)=.*/\1/p' $(SECRETS_FILE))
+endif
+
+PROJECT 			?= catalog-service
+CHART_DIR 			?= charts/$(PROJECT)
+DIST_DIR 			?= dist
+DOWNLOAD_DIR 		?= downloads
+
+# GitHub Container Registry
+GHCR_HOST 				?= ghcr.io
+GHCR_REPO 				?= helm-lab
+# REGISTRY_HOST 			?= registry.example.com
+# REGISTRY_PATH 			?= helm-lab
+CHART_VERSION 			?= 0.1.0
+CHART_PKG ?= $(PROJECT)-$(CHART_VERSION).tgz
+
+RELEASE_DEV ?= $(PROJECT)-dev
+RELEASE_STAGING ?= $(PROJECT)-staging
+RELEASE_PROD ?= $(PROJECT)-prod
+
+NS_DEV ?= catalog-dev
+NS_STAGING ?= catalog-staging
+NS_PROD ?= catalog-prod
+
+DEV_VALUES ?= environments/dev.yaml
+STAGING_VALUES ?= environments/staging.yaml
+PROD_VALUES ?= environments/prod.yaml
+
+# ------------------------------------------------------------------------------------------------
+# Make targets: 
+# | Target                       | Purpose                                  |
+# | ---------------------------- | ---------------------------------------- |
+# | make scaffold                | Create a new chart skeleton.             |
+# | make lint                    | Validate chart syntax and conventions.   |
+# | make template-dev            | Render manifests for dev.                |
+# | make package                 | Package chart into a versioned artifact. |
+# | make registry-login          | Login to OCI registry.                   |
+# | make push                    | Push packaged chart to registry.         |
+# | make pull                    | Pull chart back from registry.           |
+# | make show-chart              | Display chart metadata.                  |
+# | make show-values             | Display default chart values.            |
+# | make repo-add                | Add a Helm repository.                   |
+# | make repo-update             | Refresh repository cache.                |
+# | make search-repo             | Search chart repositories.               |
+# | make dependency-update       | Update chart dependencies.               |
+# | make dependency-build        | Rebuild dependencies from Chart.lock.    |
+# | make upgrade-install-dev     | Install or upgrade dev release.          |
+# | make upgrade-install-staging | Install or upgrade staging release.      |
+# | make upgrade-install-prod    | Install or upgrade prod release.         |
+# | make history-dev             | Show dev release history.                |
+# | make get-manifest-dev        | Show rendered manifest for dev.          |
+# | make get-values-dev          | Show applied values for dev.             |
+# | make diff-dev                | Show diff before upgrading dev.          |
+# | make rollback-dev            | Roll back dev release.                   |
+# | make list-dev                | List releases in dev namespace.          |
+# | make status-dev              | Show release status.                     |
+# | make test-dev                | Run Helm tests.                          |
+# | make env                     | Show Helm environment variables.         |
+# --------------------------------------------------------------------------------------------------
+
+
+
+# Exercise 01: Scaffold and Lint
+## Objective :
+###Create a fresh Helm chart and validate that it is structurally correct.
+
+.PHONY: helm-scaffold-new-chart
+helm-scaffold-new-chart: ## Scaffold a new chart
+	@echo "Create a new chart skeleton"
+	helm create $(CHART_DIR)
+
+.PHONY: helm-lint-validate-chart
+helm-lint-validate-chart: ## Validate chart
+	@echo "Validate chart syntax and conventions."
+	helm lint $(CHART_DIR)
+
+.PHONY: helm-template-dev
+helm-template-dev: ## Render dev manifests
+	#echo "Renders Kubernetes manifests for dev"
+	helm template $(RELEASE_DEV) $(CHART_DIR) -f $(DEV_VALUES) -n $(NS_DEV)
+
+# --------------------------------------------------------------------------------------------------
+# Exercise 02: Package and Publish
+## Objective
+### Package the chart into a versioned artifact and prepare it for registry publishing.
+
+## Expected outcome
+#- A `.tgz` package is created in `dist/`.
+#- Chart metadata is visible.
+#- Default values are inspectable before release.
+
+.PHONY: helm-package-chart-with-version
+helm-package-chart-with-version: ## Package chart
+	@echo "Package the chart into a versioned artifact \
+		and prepare it for registry publishing."
+	mkdir -p $(DIST_DIR)
+	helm package $(CHART_DIR) --version $(CHART_VERSION) --destination $(DIST_DIR)
+
+.PHONY: helm-show-chart-metadata
+helm-show-chart-metadata: ## Show chart metadata from GHCR
+	helm show chart \
+	  oci://$(GHCR_HOST)/$(GHCR_USERNAME)/$(GHCR_REPO)/$(PROJECT) \
+	  --version $(CHART_VERSION)
+
+.PHONY: helm-show-chart-values
+helm-show-chart-values: ## Show default values from GHCR chart
+	helm show values \
+	  oci://$(GHCR_HOST)/$(GHCR_USERNAME)/$(GHCR_REPO)/$(PROJECT) \
+	  --version $(CHART_VERSION)
+
+# --------------------------------------------------------------------------------------------------
+# Exercise 03: Registry Operations
+## Objective:
+##Login to a registry, push a chart, pull it back, and inspect registry 
+##discovery.
+
+## Expected outcome
+# - Registry login succeeds.
+# - Chart push succeeds.
+# - Chart can be pulled back by version.
+# - Repo search returns expected chart entries.
+.PHONY: helm-oci-registry-login
+helm-oci-registry-login: ## Login to GitHub Container Registry (GHCR)
+	@if [ -z "$(GHCR_USERNAME)" ] || [ -z "$(GHCR_PAT)" ]; then \
+	  echo "GHCR_USERNAME and GHCR_PAT must be set in the environment"; \
+	  exit 1; \
+	fi
+	@echo "Login to OCI registry"
+	helm registry login $(GHCR_HOST) \
+	  --username "$(GHCR_USERNAME)" \
+	  --password "$(GHCR_PAT)"
+
+.PHONY: helm-push-chart-packag-to-registry
+helm-push-chart-packag-to-registry: ## Push packaged chart to GHCR
+	@if [ ! -f "$(DIST_DIR)/$(CHART_PKG)" ]; then \
+	  echo "Chart package $(DIST_DIR)/$(CHART_PKG) not found. Run 'make package' first."; \
+	  exit 1; \
+	fi
+	@echo "Push packaged chart to registry."
+	helm push "$(DIST_DIR)/$(CHART_PKG)" \
+	  oci://$(GHCR_HOST)/$(GHCR_USERNAME)/$(GHCR_REPO)
+
+.PHONY: helm-pull-chart-by-version-from-registry
+helm-pull-chart-by-version-from-registry: ## Pull chart from GHCR
+	@echo "Pull chart by version from registry"
+	mkdir -p $(DOWNLOAD_DIR)
+	helm pull oci://$(GHCR_HOST)/$(GHCR_USERNAME)/$(GHCR_REPO)/$(PROJECT) \
+	  --version $(CHART_VERSION) \
+	  --destination $(DOWNLOAD_DIR)
+
+.PHONY: helm-add-a-repo
+helm-add-a-repo: ## Add chart repo
+	@echo "Add a Helm repository."
+	helm repo add $(PROJECT)-repo https://example.com/charts
+
+.PHONY: helm-repo-update
+helm-repo-update: ## Update repo cache
+	@echo "Refresh/Update repository cache."
+	helm repo update
+
+.PHONY: helm-search-repo
+helm-search-repo: ## Search chart repo
+	@echo "Search chart repositories."
+	helm search repo $(PROJECT)
+
+# Exercise 04: Dependency Management
+## Objective
+### Add chart dependencies and rebuild them reproducibly from the lockfile.
+## Expected outcome
+# 	- Dependencies are downloaded.
+# 	- `Chart.lock` is created or updated.
+# 	- Dependencies are present under `charts/`.
+
+.PHONY: helm-dependency-update-in-lockfile
+helm-dependency-update-in-lockfile: ## Donwload or Update dependencies in lockfile
+	helm dependency update $(CHART_DIR)
+
+.PHONY: helm-dependency-build-from-loackfile
+helm-dependency-build-from-loackfile: ## Build dependencies from lockfile
+	helm dependency build $(CHART_DIR)
+
+# Exercise 05: Release Management
+## Objective
+### Install or upgrade the same chart across multiple namespaces and environments.
+## Expected outcome
+# 	- Releases exist in their respective namespaces.
+# 	- History shows revisions.
+# 	- Manifest and values reflect what is deployed.
+
+.PHONY: helm-upgrade-install-dev-release-in-namespace
+helm-upgrade-install-dev-release-in-namespace: ## Install or upgrade dev release in-namespace
+	@echo "Install or upgrade dev release in namespace."
+	helm upgrade --install $(RELEASE_DEV) $(CHART_DIR) -f $(DEV_VALUES) -n $(NS_DEV) --create-namespace
+
+.PHONY: helm-upgrade-install-staging-in-namespace
+helm-upgrade-install-staging-release-in-namespace: ## Install or upgrade staging release in-namespace
+	@echo "Install or upgrade staging release in namespace."
+	helm upgrade --install $(RELEASE_STAGING) $(CHART_DIR) -f $(STAGING_VALUES) -n $(NS_STAGING) --create-namespace
+
+.PHONY: helm-upgrade-install-prod-in-namespace
+helm-upgrade-install-prod-release-in-namespace: ## Install or upgrade prod release in-namespace
+	@echo "Install or upgrade prod release in namespace."
+	helm upgrade --install $(RELEASE_PROD) $(CHART_DIR) -f $(PROD_VALUES) -n $(NS_PROD) --create-namespace
+
+.PHONY: helm-history-dev-release-in-namespace
+helm-history-dev-release-in-namespace: ## Show dev release history in-namespace
+	@echo "Show dev release history in namespace."
+	helm history $(RELEASE_DEV) -n $(NS_DEV)
+
+.PHONY: helm-get-manifest-dev-release-in-namespace
+helm-get-manifest-dev-release-in-namespace: ## Get dev release manifest in-namespace
+	@echo "Get dev release manifest in-namespace"
+	helm get manifest $(RELEASE_DEV) -n $(NS_DEV)
+
+.PHONY: helm-get-values-dev-release-in-namespace
+helm-get-values-dev-release-in-namespace: ## Get dev release values -in-namespace
+	@echo "Get dev release values in-namespace"
+	helm get values $(RELEASE_DEV) -n $(NS_DEV)
+
+# Exercise 06: Diff and Rollback
+## Objective
+### Preview a release change before applying it and recover from a bad upgrade.
+## Expected outcome
+# 	- Diff shows what will change.
+# 	- Upgrade applies a new revision.
+# 	- Rollback restores a previous revision.
+# 	- History confirms the revision sequence.
+
+.PHONY: helm-diff-dev-release-change-before-apply-in-namespace
+helm-diff-dev-release-change-before-apply-in-namespace: ## Diff dev release changes before upgrade/apply
+	@echo "Diff dev release changes before upgrade/apply"
+	helm diff upgrade $(RELEASE_DEV) $(CHART_DIR) -f $(DEV_VALUES) -n $(NS_DEV)
+
+.PHONY: helm-rollback-dev-release-to-previous-version-in-namespace
+helm-rollback-dev-release-to-previous-version-in-namespace: ## Roll back dev release to previous version in namespace
+	@echo "Roll back dev release to previous version in namespace"
+	helm rollback $(RELEASE_DEV) 1 -n $(NS_DEV)
+
+# Exercise 07: Environment and Troubleshooting
+## Objective
+### Inspect Helm environment settings and verify release health.
+## Expected outcome
+# 	- Helm environment variables are displayed.
+# 	- Release status is visible.
+# 	- Tests run against the deployed release.
+
+# | make list-dev                | List releases in dev namespace.          |
+# | make status-dev              | Show release status.                     |
+# | make test-dev                | Run Helm tests.                          |
+# | make env                     | Show Helm environment variables.  
+
+.PHONY: helm-list-dev-releases-in-namespace
+helm-list-dev-releases-in-namespace: ## List releases in dev namespace.
+	@echo "List releases in dev namespace."
+	helm list -n $(NS_DEV)
+
+.PHONY: helm-show-status-dev-release-in-namespace
+helm-show-status-dev-release-in-namespace: ## Show dev release status in namespace
+	helm status $(RELEASE_DEV) -n $(NS_DEV)
+
+.PHONY: helm-run-tests-for-dev-release-in-namespace
+helm-run-tests-for-dev-release-in-namespace: ## Run helm tests for dev release in namespace
+	helm test $(RELEASE_DEV) -n $(NS_DEV) --logs
+
+.PHONY: helm-show-env-variables
+helm-show-env-variables: ## Show Helm environment variables
+	@echo "Show Helm environment variables"
+	helm env

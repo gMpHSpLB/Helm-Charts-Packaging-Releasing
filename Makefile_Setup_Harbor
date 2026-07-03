@@ -1,0 +1,83 @@
+# Use Bash for shell commands in recipes.
+# This gives us better shell features than plain sh.
+SHELL := /bin/bash
+
+# Default target
+.DEFAULT_GOAL := help
+.PHONY: help
+# Self-documenting help: list targets with "##" comments
+help: ## Show all available targets with short descriptions.
+	# This target reads the Makefile and prints any line ending with ##.
+	# Use this when you want to discover available commands quickly.
+	# Expected output: a list of targets and one-line descriptions.
+	@awk 'BEGIN {FS = ":.*##"; printf "\nUsage:\n  make <target>\n\nTargets:\n"} /^[a-zA-Z0-9_.-]+:.*##/ { printf "  %-28s %s\n", $$1, $$2 }' $(MAKEFILE_LIST)
+
+.PHONY:
+
+# ---------- GLOBAL CONFIG --------------------------------------
+# ------------------------Minikube ------------------------------
+# Default minikube profile name.
+# A profile is like a named cluster configuration stored by minikube.
+# Use this if you want multiple local clusters on the same machine.
+MINIKUBE_PROFILE 			?= k8s-learning
+# ------------------------ Harbor -------------------------------
+HARBOR_NAMESPACE 			?= harbor
+HARBOR_RELEASE 				?= harbor
+HARBOR_REPO 				?= https://helm.goharbor.io
+HARBOR_EXTERNAL_URL 		?= http://harbor.local
+HARBOR_ADMIN_USER			?= admin
+HARBOR_ADMIN_PASSWORD 		?= admin
+
+REGISTRY_HOST 				?= 192.168.49.2:30002
+HARBOR_PROJECT 				?= helm-lab
+
+# Note: make sure minikube is running.
+# TODO : Keep Harbor running in Minikube but currently we are using a cloud registry (GitHub GitHub Container Registry (GHCR)) 
+#        as the actual Helm OCI endpoint
+# --------------------------------------------------------------------------------
+#					Install Harbor on Minikube using Helm
+# --------------------------------------------------------------------------------
+# Harbor provides an official Helm chart and a Helm repository.
+.PHONY: harbor-add-repo
+harbor-add-repo: ## Add Harbor Helm repo
+	helm repo add harbor $(HARBOR_REPO)
+	helm repo update
+
+# Key points:
+# 	expose.type=nodePort works well with Minikube; you’ll reach Harbor via Minikube’s IP and the NodePort.
+# 	expose.tls.enabled=false avoids TLS complexity for a local lab.
+# 	externalURL is a placeholder used inside Harbor; you can map harbor.local to Minikube’s IP in /etc/hosts for convenience.
+# 	harborAdminPassword sets the Harbor admin password.
+.PHONY: harbor-install
+harbor-install: harbor-add-repo ## Install Harbor on Minikube
+	kubectl create namespace $(HARBOR_NAMESPACE) || true
+	helm install $(HARBOR_RELEASE) harbor/harbor \
+	  --namespace $(HARBOR_NAMESPACE) \
+	  --set expose.type=nodePort \
+	  --set expose.tls.enabled=false \
+	  --set externalURL=$(HARBOR_EXTERNAL_URL) \
+	  --set harborAdminPassword=$(HARBOR_ADMIN_PASSWORD)
+
+.PHONY: harbor-status
+harbor-status: ## Check Harbor status
+	kubectl -n $(HARBOR_NAMESPACE) get pods
+	kubectl -n $(HARBOR_NAMESPACE) get svc harbor-core
+	minikube ip --profile $(MINIKUBE_PROFILE)
+
+.PHONY: harbor-registry-login
+harbor-registry-login: ## Login to Harbor registry over HTTP (local lab)
+	@mkdir -p $(HOME)/.config/helm
+	@printf '%s\n' \
+		'{' \
+		'"registries": [' \
+		'	{' \
+		'	"server": "$(REGISTRY_HOST)",' \
+		'	"insecure": true' \
+		'	}' \
+		']' \
+		'}' \
+		> $(HOME)/.config/helm/registry.json
+	export HELM_REGISTRY_CONFIG=$(HOME)/.config/helm/registry.json && \
+	helm registry login $(REGISTRY_HOST) \
+	  --username $(HARBOR_ADMIN_USER) \
+	  --password $(HARBOR_ADMIN_PASSWORD)
