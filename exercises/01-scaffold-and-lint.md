@@ -4,31 +4,38 @@
 Create a fresh Helm chart and validate that it is structurally correct.
 
 ## Why this matters
-In enterprise teams, the first gate for chart quality is linting. Helm lint checks whether the chart is well-formed and catches problems before deployment [web:27].
+In enterprise workflows, chart quality starts with linting and basic rendering checks. Helm lint helps catch structural issues before a chart is packaged or deployed [web:27][web:29].
 
 ## Commands
+
+From the repo root:
+
 ```bash
-make scaffold
-make lint
-make template-dev
+make helm-scaffold-new-chart
+make helm-lint-validate-chart
+make helm-template-dev
 ```
 
 ## Expected outcome
-- A new chart exists under `charts/catalog-service/`.
-- `make lint` passes without errors.
-- `make template-dev` renders Kubernetes manifests successfully.
+
+- `charts/catalog-service/` exists with a standard Helm chart structure.
+- `make helm-lint-validate-chart` completes without errors.
+- `make helm-template-dev` renders Kubernetes manifests for the dev environment using `environments/dev.yaml`.
 
 ## What to verify
-- Chart directory structure looks valid.
-- Templates render without YAML syntax issues.
-- Environment-specific values from `environments/dev.yaml` are applied.
+
+- Chart directory structure looks valid (`Chart.yaml`, `values.yaml`, `templates/`).
+- Lint output shows either “0 chart(s) linted, 0 chart(s) failed” or similar success.
+- Rendered manifests include your expected resources (Deployment, Service, etc.) with dev-specific values.
 
 ## Common failures
-- Missing template files.
-- Invalid YAML indentation.
-- Undefined or misspelled values keys.
+
+- Missing chart directory (`charts/catalog-service`).
+- Invalid YAML indentation or missing keys in templates.
+- Dev values file path mismatch (`environments/dev.yaml` not found).
 
 ## Fix approach
-- Correct YAML indentation.
-- Review `values.yaml` and environment overrides.
-- Re-run `make lint` and `make template-dev`.
+
+- Ensure `CHART_DIR` and `DEV_VALUES` in the Makefile point to existing paths.
+- Correct YAML and template syntax.
+- Re-run the three commands until lint and template succeed [web:27][web:29].

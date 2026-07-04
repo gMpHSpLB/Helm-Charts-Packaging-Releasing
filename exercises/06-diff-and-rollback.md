@@ -1,36 +1,44 @@
 # Exercise 06: Diff and Rollback
 
 ## Objective
-Preview a release change before applying it and recover from a bad upgrade.
+Preview dev release changes before upgrading and roll back to a previous revision if needed.
 
 ## Why this matters
-In enterprise operations, every production upgrade should be reviewed before application. Helm diff gives change visibility, and rollback provides fast recovery.
+Previewing changes before applying them and having a rollback path are key parts of safe production operations. Helm diff and rollback support this workflow directly [web:31][web:36].
 
 ## Commands
+
+From the repo root:
+
 ```bash
-make diff-dev
-make upgrade-install-dev
-make rollback-dev
-make history-dev
+make helm-diff-dev-release-change-before-apply-in-namespace
+make helm-upgrade-install-dev-release-in-namespace
+make helm-history-dev-release-in-namespace
+make helm-rollback-dev-release-to-previous-version-in-namespace
+make helm-history-dev-release-in-namespace
 ```
 
 ## Expected outcome
-- Diff shows what will change.
-- Upgrade applies a new revision.
-- Rollback restores a previous revision.
-- History confirms the revision sequence.
+
+- Diff displays what will change for the dev release.
+- Upgrade creates a new revision in dev history.
+- Rollback restores the previous revision.
+- History confirms the revision sequence before and after rollback.
 
 ## What to verify
-- Manifest changes are visible before deploy.
-- Revision numbers increase after upgrade.
-- Rollback returns the release to a known-good state.
+
+- `helm diff` output shows resource changes clearly.
+- `helm history` lists revision numbers, timestamps, and descriptions.
+- After rollback, the current revision reflects the rolled-back state.
 
 ## Common failures
-- Diff plugin not installed.
-- Wrong revision number during rollback.
-- Release history shorter than expected.
+
+- `helm diff` plugin not installed.
+- Wrong revision number supplied to rollback.
+- Dev release not yet installed (no history to diff or rollback).
 
 ## Fix approach
-- Install `helm-diff`.
-- Check `helm history` before rollback.
-- Roll back to a valid revision.
+
+- Install `helm-diff` plugin if needed.
+- Check `helm history` before rollback to choose the correct revision.
+- Ensure the dev release exists by running the dev upgrade/install first.

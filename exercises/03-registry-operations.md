@@ -1,38 +1,44 @@
 # Exercise 03: Registry Operations
 
 ## Objective
-Login to a registry, push a chart, pull it back, and inspect registry discovery.
+Login to GHCR, push a chart, pull it back by version, and practice Helm repo discovery commands.
 
 ## Why this matters
-Chart registries are the source of truth in many enterprise pipelines. Helm supports OCI registry workflows for storing and consuming packaged charts [web:10][web:12][web:14].
+Registry operations are central to Helm as a package manager. GHCR supports OCI artifacts, and Helm can push/pull chart packages as OCI, giving you a realistic cloud-backed workflow [web:81][web:42].
 
 ## Commands
+
+From the repo root:
+
 ```bash
-make registry-login
-make push
-make pull
-make repo-add
-make repo-update
-make search-repo
+make helm-oci-registry-login
+make helm-push-chart-packag-to-registry
+make helm-pull-chart-by-version-from-registry
+make helm-add-a-repo
+make helm-repo-update
+make helm-search-repo
 ```
 
 ## Expected outcome
-- Registry login succeeds.
-- Chart push succeeds.
-- Chart can be pulled back by version.
-- Repo search returns expected chart entries.
+
+- OCI login to `ghcr.io` succeeds.
+- Chart is pushed and can be pulled back by exact `CHART_VERSION`.
+- An example Helm repo is added, cache updated, and search shows results.
 
 ## What to verify
-- The pushed version is immutable.
-- The pulled artifact matches the published version.
-- Search results show the chart source.
+
+- `downloads/` contains the pulled chart `.tgz` file.
+- GHCR shows the chart under `<GHCR_USERNAME>/helm-lab`.
+- `helm search repo $(PROJECT)` returns entries from the demo repo.
 
 ## Common failures
-- Registry authentication failure.
-- Incorrect OCI path.
-- Missing chart package.
+
+- Wrong `CHART_PKG` path if packaging hasn’t run.
+- GHCR authentication errors.
+- Dummy repo URL (`https://example.com/charts`) not reachable in real usage.
 
 ## Fix approach
-- Verify registry hostname and credentials.
-- Ensure the package exists in `dist/`.
-- Check chart version and OCI path syntax.
+
+- Always run `make helm-package-chart-with-version` before pushing.
+- Ensure `.secrets` is present and correct.
+- For a real repo, replace `https://example.com/charts` with a real chart repo URL.

@@ -3,6 +3,9 @@ validated, packaged, published to a registry, rebuilt from dependency
 locks, deployed to multiple environments, tested, diffed, and rolled 
 back when needed.
 
+This project uses Helm packaging to create versioned chart artifacts 
+and publishes them to GitHub Container Registry using OCI references.
+
 # Goals
 ## This lab demonstrates how Helm works as:
 **A package manager for reusable chart artifacts.
@@ -11,6 +14,13 @@ A versioned delivery tool for promoting chart releases across environments.
 A registry client for pushing, pulling, and inspecting chart artifacts.
 A dependency manager for reproducible subchart builds.
 A troubleshooting tool for inspecting Helm environment and release state.**
+
+**The chart is scaffolded locally with Helm, customized with templates and 
+base values, and then deployed to Kubernetes using environment-specific 
+overrides. For packaging and release distribution, the chart is packaged 
+as a Helm archive and published to GitHub Container Registry using OCI 
+references. This keeps the runtime deployment separate from the artifact 
+registry workflow.**
 
 # Requirements:
 **    Helm 3.x.

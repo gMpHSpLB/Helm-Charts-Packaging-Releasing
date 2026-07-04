@@ -157,10 +157,15 @@ PROD_VALUES ?= environments/prod.yaml
 # Exercise 01: Scaffold and Lint
 ## Objective :
 ###Create a fresh Helm chart and validate that it is structurally correct.
-
+### Note: If you have already added Charts.yaml and templetes and other files manuulay then you keep helm-scaffold-new-chart, treat it as a demo target, 
+#         but don’t run it on top of the chart you’ve already built.
 .PHONY: helm-scaffold-new-chart
-helm-scaffold-new-chart: ## Scaffold a new chart
-	@echo "Create a new chart skeleton"
+helm-scaffold-new-chart: ## Scaffold a new chart (only if it does not already exist)
+	@if [ -d "$(CHART_DIR)" ]; then \
+	  echo "Chart directory $(CHART_DIR) already exists. Skipping 'helm create' to avoid overwriting custom Chart.yaml and templates."; \
+	  exit 0; \
+	fi
+	@echo "Chart directory $(CHART_DIR) not found. Creating new chart skeleton with 'helm create'..."
 	helm create $(CHART_DIR)
 
 .PHONY: helm-lint-validate-chart
@@ -171,7 +176,7 @@ helm-lint-validate-chart: ## Validate chart
 .PHONY: helm-template-dev
 helm-template-dev: ## Render dev manifests
 	#echo "Renders Kubernetes manifests for dev"
-	helm template $(RELEASE_DEV) $(CHART_DIR) -f $(DEV_VALUES) -n $(NS_DEV)
+	helm template $(RELEASE_DEV) $(CHART_DIR) -f $(CHART_DIR)/values.yaml -f $(DEV_VALUES) -n $(NS_DEV)
 
 # --------------------------------------------------------------------------------------------------
 # Exercise 02: Package and Publish
@@ -184,14 +189,14 @@ helm-template-dev: ## Render dev manifests
 #- Default values are inspectable before release.
 
 .PHONY: helm-package-chart-with-version
-helm-package-chart-with-version: ## Package chart
+helm-package-chart-with-version: ## Package chart (Helm archive for OCI registry)
 	@echo "Package the chart into a versioned artifact \
 		and prepare it for registry publishing."
 	mkdir -p $(DIST_DIR)
 	helm package $(CHART_DIR) --version $(CHART_VERSION) --destination $(DIST_DIR)
 
 .PHONY: helm-show-chart-metadata
-helm-show-chart-metadata: ## Show chart metadata from GHCR
+helm-show-chart-metadata: ## Show chart metadata from GHCR 
 	helm show chart \
 	  oci://$(GHCR_HOST)/$(GHCR_USERNAME)/$(GHCR_REPO)/$(PROJECT) \
 	  --version $(CHART_VERSION)
@@ -213,8 +218,15 @@ helm-show-chart-values: ## Show default values from GHCR chart
 # - Chart push succeeds.
 # - Chart can be pulled back by version.
 # - Repo search returns expected chart entries.
+.PHONY: ghcr-check-secrets
+ghcr-check-secrets:
+	@if [ -z "$(GHCR_USERNAME)" ] || [ -z "$(GHCR_PAT)" ]; then \
+	  echo "GHCR_USERNAME and GHCR_PAT must be set in .secrets"; \
+	  exit 1; \
+	fi
+
 .PHONY: helm-oci-registry-login
-helm-oci-registry-login: ## Login to GitHub Container Registry (GHCR)
+helm-oci-registry-login: ghcr-check-secrets ## Login to GitHub Container Registry (GHCR, OCI) 
 	@if [ -z "$(GHCR_USERNAME)" ] || [ -z "$(GHCR_PAT)" ]; then \
 	  echo "GHCR_USERNAME and GHCR_PAT must be set in the environment"; \
 	  exit 1; \
@@ -225,7 +237,7 @@ helm-oci-registry-login: ## Login to GitHub Container Registry (GHCR)
 	  --password "$(GHCR_PAT)"
 
 .PHONY: helm-push-chart-packag-to-registry
-helm-push-chart-packag-to-registry: ## Push packaged chart to GHCR
+helm-push-chart-packag-to-registry: ghcr-check-secrets ## Push packaged chart to GHCR (OCI)
 	@if [ ! -f "$(DIST_DIR)/$(CHART_PKG)" ]; then \
 	  echo "Chart package $(DIST_DIR)/$(CHART_PKG) not found. Run 'make package' first."; \
 	  exit 1; \
@@ -235,7 +247,7 @@ helm-push-chart-packag-to-registry: ## Push packaged chart to GHCR
 	  oci://$(GHCR_HOST)/$(GHCR_USERNAME)/$(GHCR_REPO)
 
 .PHONY: helm-pull-chart-by-version-from-registry
-helm-pull-chart-by-version-from-registry: ## Pull chart from GHCR
+helm-pull-chart-by-version-from-registry: ghcr-check-secrets ## Pull chart from GHCR (OCI)
 	@echo "Pull chart by version from registry"
 	mkdir -p $(DOWNLOAD_DIR)
 	helm pull oci://$(GHCR_HOST)/$(GHCR_USERNAME)/$(GHCR_REPO)/$(PROJECT) \
@@ -284,17 +296,17 @@ helm-dependency-build-from-loackfile: ## Build dependencies from lockfile
 .PHONY: helm-upgrade-install-dev-release-in-namespace
 helm-upgrade-install-dev-release-in-namespace: ## Install or upgrade dev release in-namespace
 	@echo "Install or upgrade dev release in namespace."
-	helm upgrade --install $(RELEASE_DEV) $(CHART_DIR) -f $(DEV_VALUES) -n $(NS_DEV) --create-namespace
+	helm upgrade --install $(RELEASE_DEV) $(CHART_DIR) -f $(CHART_DIR)/values.yaml -f $(DEV_VALUES) -n $(NS_DEV) --create-namespace
 
 .PHONY: helm-upgrade-install-staging-in-namespace
 helm-upgrade-install-staging-release-in-namespace: ## Install or upgrade staging release in-namespace
 	@echo "Install or upgrade staging release in namespace."
-	helm upgrade --install $(RELEASE_STAGING) $(CHART_DIR) -f $(STAGING_VALUES) -n $(NS_STAGING) --create-namespace
+	helm upgrade --install $(RELEASE_STAGING) $(CHART_DIR) -f $(CHART_DIR)/values.yaml -f $(STAGING_VALUES) -n $(NS_STAGING) --create-namespace
 
 .PHONY: helm-upgrade-install-prod-in-namespace
 helm-upgrade-install-prod-release-in-namespace: ## Install or upgrade prod release in-namespace
 	@echo "Install or upgrade prod release in namespace."
-	helm upgrade --install $(RELEASE_PROD) $(CHART_DIR) -f $(PROD_VALUES) -n $(NS_PROD) --create-namespace
+	helm upgrade --install $(RELEASE_PROD) $(CHART_DIR) -f $(CHART_DIR)/values.yaml -f $(PROD_VALUES) -n $(NS_PROD) --create-namespace
 
 .PHONY: helm-history-dev-release-in-namespace
 helm-history-dev-release-in-namespace: ## Show dev release history in-namespace

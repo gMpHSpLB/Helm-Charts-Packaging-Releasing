@@ -1,35 +1,44 @@
 # Exercise 07: Environment and Troubleshooting
 
 ## Objective
-Inspect Helm environment settings and verify release health.
+Inspect Helm environment settings and verify release health for the dev environment.
 
 ## Why this matters
-Helm environment inspection is useful when diagnosing differences between local development, CI runners, and cluster access settings [web:19].
+Helm environment inspection helps diagnose issues with cache, config, and data paths. Release status and tests verify that the deployed chart is healthy [web:19][web:33][web:36].
 
 ## Commands
+
+From the repo root:
+
 ```bash
-make env
-make list-dev
-make status-dev
-make test-dev
+make helm-show-env-variables
+make helm-list-dev-releases-in-namespace
+make helm-show-status-dev-release-in-namespace
+make helm-run-tests-for-dev-release-in-namespace
 ```
 
 ## Expected outcome
-- Helm environment variables are displayed.
-- Release status is visible.
-- Tests run against the deployed release.
+
+- Helm environment variables and paths are displayed.
+- Dev releases are listed in the `catalog-dev` namespace.
+- Dev release status shows a healthy state (e.g., `deployed`).
+- Helm tests run against the dev release and logs are printed.
 
 ## What to verify
-- Cache, config, data, and plugin paths are correct.
-- Release is in a healthy state.
-- Test hooks complete successfully.
+
+- `helm env` shows cache, config, and data directories you expect.
+- `helm list -n catalog-dev` includes your dev release.
+- `helm status` shows the correct namespace and resources.
+- Test hooks complete successfully and verify the service readiness.
 
 ## Common failures
-- Wrong kube context.
-- Missing Helm plugin.
-- Test pod fails due to service readiness.
+
+- Wrong kube context or namespace.
+- Tests fail due to service not ready or wrong test manifest.
+- Helm plugins or environment paths misconfigured.
 
 ## Fix approach
-- Check `KUBECONFIG` and current context.
-- Verify plugin installation.
-- Review test pod logs with `--logs`.
+
+- Confirm kube context and namespace (`NS_DEV`) are correct.
+- Inspect test logs for root cause of failures.
+- Adjust test pod/job definitions under `templates/tests/` as needed [web:36][web:33].
