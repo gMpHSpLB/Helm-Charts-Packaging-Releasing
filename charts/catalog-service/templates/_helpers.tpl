@@ -95,3 +95,82 @@ Usage: {{ include "myapp.envPrefix" . }}
 {{- define "myapp.secretChecksum" -}}
 {{ toYaml .Values.secrets | sha256sum }}
 {{- end -}}
+
+{{/*
+Notes header.
+*/}}
+{{- define "myapp.notes.header" -}}
+myapp {{ .Chart.AppVersion }} deployed
+
+Release     : {{ .Release.Name }}
+Namespace   : {{ .Release.Namespace }}
+Environment : {{ .Values.environment }}
+{{- end }}
+
+{{/*
+Notes access URL section.
+*/}}
+{{- define "myapp.notes.access" -}}
+{{- if .Values.ingress.enabled }}
+Access URL:
+{{- range .Values.ingress.hosts }}
+  - http{{ if $.Values.ingress.tls }}s{{ end }}://{{ .host }}
+{{- end }}
+
+{{- else if eq .Values.service.type "NodePort" }}
+Access URL:
+  export NODE_IP=$(kubectl get nodes -o jsonpath='{.items[0].status.addresses[0].address}')
+  export NODE_PORT=$(kubectl get svc {{ include "myapp.fullname" . }} -n {{ .Release.Namespace }} -o jsonpath='{.spec.ports[0].nodePort}')
+  echo "URL: http://$NODE_IP:$NODE_PORT"
+
+{{- else }}
+Access URL:
+  kubectl port-forward svc/{{ include "myapp.fullname" . }} 8080:{{ .Values.service.port }} -n {{ .Release.Namespace }}
+  echo "URL: http://127.0.0.1:8080"
+{{- end }}
+{{- end }}
+
+{{/*
+Notes next steps.
+*/}}
+{{- define "myapp.notes.nextSteps" -}}
+Next steps:
+  1. Check rollout:
+     kubectl rollout status deployment/{{ include "myapp.fullname" . }} -n {{ .Release.Namespace }}
+
+  2. View logs:
+     kubectl logs -l app.kubernetes.io/name={{ include "myapp.name" . }} -n {{ .Release.Namespace }} --tail=100
+
+  3. Check pods:
+     kubectl get pods -l app.kubernetes.io/name={{ include "myapp.name" . }} -n {{ .Release.Namespace }}
+{{- end }}
+
+{{/*
+Notes PDB block.
+*/}}
+{{- define "myapp.notes.pdb" -}}
+{{- if .Values.podDisruptionBudget.enabled }}
+PodDisruptionBudget:
+  Minimum {{ .Values.podDisruptionBudget.minAvailable }} pod(s) remain available during node drain operations.
+{{- end }}
+{{- end }}
+
+{{/*
+Notes autoscaling block.
+*/}}
+{{- define "myapp.notes.autoscaling" -}}
+{{- if .Values.autoscaling.enabled }}
+Autoscaling:
+  Scales between {{ .Values.autoscaling.minReplicas }} and {{ .Values.autoscaling.maxReplicas }} replicas.
+{{- end }}
+{{- end }}
+
+{{/*
+Notes warning block.
+*/}}
+{{- define "myapp.notes.warning" -}}
+{{- if not .Values.externalSecretName }}
+Warning:
+  Using chart-managed Secret. For production, set externalSecretName to use an externally managed secret.
+{{- end }}
+{{- end }}

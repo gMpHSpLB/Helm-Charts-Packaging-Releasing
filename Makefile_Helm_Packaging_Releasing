@@ -95,30 +95,41 @@ include $(SECRETS_FILE)
 export $(shell sed -n 's/^\([A-Za-z_][A-Za-z0-9_]*\)=.*/\1/p' $(SECRETS_FILE))
 endif
 
-PROJECT 			?= catalog-service
-CHART_DIR 			?= charts/$(PROJECT)
-DIST_DIR 			?= dist
-DOWNLOAD_DIR 		?= downloads
+PROJECT 				?= catalog-service
+CHART_DIR 				?= charts/$(PROJECT)
+DIST_DIR 				?= dist
+DOWNLOAD_DIR 			?= downloads
 
 # GitHub Container Registry
 GHCR_HOST 				?= ghcr.io
 GHCR_REPO 				?= helm-lab
+GHCR_USERNAME_RAW			?= gMpHSpLB
+GHCR_USERNAME_LOWERCASE		:= $(shell printf '%s' '$(GHCR_USERNAME_RAW)' | tr '[:upper:]' '[:lower:]')
 # REGISTRY_HOST 			?= registry.example.com
 # REGISTRY_PATH 			?= helm-lab
+# Chart SemVer:
+# - patch: template fixes, metadata updates, small config changes
+# - minor: new optional chart features or new values
+# - major: breaking schema or resource behavior changes
 CHART_VERSION 			?= 0.1.0
-CHART_PKG ?= $(PROJECT)-$(CHART_VERSION).tgz
 
-RELEASE_DEV ?= $(PROJECT)-dev
-RELEASE_STAGING ?= $(PROJECT)-staging
-RELEASE_PROD ?= $(PROJECT)-prod
+# Application image version
+APP_VERSION   			?= 1.0.0
 
-NS_DEV ?= catalog-dev
-NS_STAGING ?= catalog-staging
-NS_PROD ?= catalog-prod
+HELM_CHART_NAME 		?= myapp-helm-chart
+CHART_PKG 				?= $(HELM_CHART_NAME)-$(CHART_VERSION).tgz
 
-DEV_VALUES ?= environments/dev.yaml
-STAGING_VALUES ?= environments/staging.yaml
-PROD_VALUES ?= environments/prod.yaml
+RELEASE_DEV 			?= $(PROJECT)-dev
+RELEASE_STAGING 		?= $(PROJECT)-staging
+RELEASE_PROD 			?= $(PROJECT)-prod
+
+NS_DEV 					?= catalog-dev
+NS_STAGING 				?= catalog-staging
+NS_PROD 				?= catalog-prod
+
+DEV_VALUES 				?= environments/dev.yaml
+STAGING_VALUES 			?= environments/staging.yaml
+PROD_VALUES 			?= environments/prod.yaml
 
 # ------------------------------------------------------------------------------------------------
 # Make targets: 
@@ -152,7 +163,17 @@ PROD_VALUES ?= environments/prod.yaml
 # | make env                     | Show Helm environment variables.         |
 # --------------------------------------------------------------------------------------------------
 
-
+.PHONY : print_scaffold_lint_render_purpose
+print_scaffold_lint_render_purpose: 
+	@echo " ==========================================================================================="
+	@echo " 				'Scaffold, Lint & Render'								   "
+	@echo " ==========================================================================================="
+	@printf '%s\n' \
+		'Purpose:' \
+		'   - Ensure the chart skeleton exists (without overwriting custom files).' \
+		'   - Run helm lint to validate chart structure and values usage.' \
+		'   - Render dev manifests to verify that dev.yaml + values.yaml work together.'
+	@echo " " 
 
 # Exercise 01: Scaffold and Lint
 ## Objective :
@@ -160,17 +181,17 @@ PROD_VALUES ?= environments/prod.yaml
 ### Note: If you have already added Charts.yaml and templetes and other files manuulay then you keep helm-scaffold-new-chart, treat it as a demo target, 
 #         but don’t run it on top of the chart you’ve already built.
 .PHONY: helm-scaffold-new-chart
-helm-scaffold-new-chart: ## Scaffold a new chart (only if it does not already exist)
+helm-scaffold-new-chart: print_scaffold_lint_render_purpose ## Scaffold a new chart (only if it does not already exist)
 	@if [ -d "$(CHART_DIR)" ]; then \
-	  echo "Chart directory $(CHART_DIR) already exists. Skipping 'helm create' to avoid overwriting custom Chart.yaml and templates."; \
-	  exit 0; \
+	  	echo "Chart directory $(CHART_DIR) already exists. Skipping 'helm create' to avoid overwriting custom Chart.yaml and templates."; \
+	else \
+		echo "Chart directory $(CHART_DIR) not found. Creating new chart skeleton with 'helm create'..."; \
+		helm create $(CHART_DIR); \
 	fi
-	@echo "Chart directory $(CHART_DIR) not found. Creating new chart skeleton with 'helm create'..."
-	helm create $(CHART_DIR)
 
 .PHONY: helm-lint-validate-chart
 helm-lint-validate-chart: ## Validate chart
-	@echo "Validate chart syntax and conventions."
+	@echo "==> Validate chart syntax and conventions."
 	helm lint $(CHART_DIR)
 
 .PHONY: helm-template-dev
@@ -187,11 +208,22 @@ helm-template-dev: ## Render dev manifests
 #- A `.tgz` package is created in `dist/`.
 #- Chart metadata is visible.
 #- Default values are inspectable before release.
+.PHONY : print_package_publish_purpose
+print_package_publish_purpose: 
+	@echo " ==========================================================================================="
+	@echo " 				'Package and Publish'								       "
+	@echo " ==========================================================================================="
+	@printf '%s\n' \
+		'Purpose:' \
+		'   - Package the chart into a versioned .tgz file.' \
+		'   - Login to GHCR (OCI registry).' \
+		'   - Push the packaged chart to GHCR.'
+	@echo " "
 
 .PHONY: helm-package-chart-with-version
-helm-package-chart-with-version: ## Package chart (Helm archive for OCI registry)
-	@echo "Package the chart into a versioned artifact \
-		and prepare it for registry publishing."
+helm-package-chart-with-version: print_package_publish_purpose ## Package chart (Helm archive for OCI registry)
+	@echo "==> Package the chart into a versioned artifact \
+	and prepare it for registry publishing."
 	mkdir -p $(DIST_DIR)
 	helm package $(CHART_DIR) --version $(CHART_VERSION) --destination $(DIST_DIR)
 
@@ -218,55 +250,69 @@ helm-show-chart-values: ## Show default values from GHCR chart
 # - Chart push succeeds.
 # - Chart can be pulled back by version.
 # - Repo search returns expected chart entries.
+
+.PHONY : print_registry_roundtrip_purpose
+print_registry_roundtrip_purpose: 
+	@echo " ==========================================================================================="
+	@echo " 				'Registry Operations'								       "
+	@echo " ==========================================================================================="
+	@printf '%s\n' \
+		'Purpose:' \
+		'   - Login to GHCR.' \
+		'   - Push the chart package.' \
+		'   - Pull the chart package back by version.'\
+		'   - Exercise Helm repo add/update/search commands.'
+	@echo " "
+
 .PHONY: ghcr-check-secrets
-ghcr-check-secrets:
+ghcr-check-secrets: 
 	@if [ -z "$(GHCR_USERNAME)" ] || [ -z "$(GHCR_PAT)" ]; then \
 	  echo "GHCR_USERNAME and GHCR_PAT must be set in .secrets"; \
 	  exit 1; \
 	fi
 
 .PHONY: helm-oci-registry-login
-helm-oci-registry-login: ghcr-check-secrets ## Login to GitHub Container Registry (GHCR, OCI) 
+helm-oci-registry-login: print_registry_roundtrip_purpose ghcr-check-secrets ## Login to GitHub Container Registry (GHCR, OCI) 
 	@if [ -z "$(GHCR_USERNAME)" ] || [ -z "$(GHCR_PAT)" ]; then \
 	  echo "GHCR_USERNAME and GHCR_PAT must be set in the environment"; \
-	  exit 1; \
+	else \
+	echo "==> Login to OCI registry"; \
+		helm registry login $(GHCR_HOST) \
+		--username "$(GHCR_USERNAME)" \
+		--password "$(GHCR_PAT)"; \
 	fi
-	@echo "Login to OCI registry"
-	helm registry login $(GHCR_HOST) \
-	  --username "$(GHCR_USERNAME)" \
-	  --password "$(GHCR_PAT)"
-
+	
 .PHONY: helm-push-chart-packag-to-registry
-helm-push-chart-packag-to-registry: ghcr-check-secrets ## Push packaged chart to GHCR (OCI)
+helm-push-chart-packag-to-registry: helm-oci-registry-login ghcr-check-secrets ## Push packaged chart to GHCR (OCI)
 	@if [ ! -f "$(DIST_DIR)/$(CHART_PKG)" ]; then \
 	  echo "Chart package $(DIST_DIR)/$(CHART_PKG) not found. Run 'make package' first."; \
-	  exit 1; \
+	else \
+	  echo "==> Push packaged chart to registry."; \
+		helm push "$(DIST_DIR)/$(CHART_PKG)" \
+		oci://$(GHCR_HOST)/$(GHCR_USERNAME_LOWERCASE)/$(GHCR_REPO); \
 	fi
-	@echo "Push packaged chart to registry."
-	helm push "$(DIST_DIR)/$(CHART_PKG)" \
-	  oci://$(GHCR_HOST)/$(GHCR_USERNAME)/$(GHCR_REPO)
-
+	
 .PHONY: helm-pull-chart-by-version-from-registry
-helm-pull-chart-by-version-from-registry: ghcr-check-secrets ## Pull chart from GHCR (OCI)
-	@echo "Pull chart by version from registry"
+helm-pull-chart-by-version-from-registry: helm-oci-registry-login ghcr-check-secrets ## Pull chart from GHCR (OCI)
+	@echo "==> Pull chart by version from registry"
 	mkdir -p $(DOWNLOAD_DIR)
-	helm pull oci://$(GHCR_HOST)/$(GHCR_USERNAME)/$(GHCR_REPO)/$(PROJECT) \
+	helm pull oci://$(GHCR_HOST)/$(GHCR_USERNAME_LOWERCASE)/$(GHCR_REPO)/$(HELM_CHART_NAME) \
 	  --version $(CHART_VERSION) \
 	  --destination $(DOWNLOAD_DIR)
 
 .PHONY: helm-add-a-repo
 helm-add-a-repo: ## Add chart repo
-	@echo "Add a Helm repository."
+	@echo "==> Add a Helm repository."
 	helm repo add $(PROJECT)-repo https://example.com/charts
 
 .PHONY: helm-repo-update
 helm-repo-update: ## Update repo cache
-	@echo "Refresh/Update repository cache."
+	@echo "==> Refresh/Update repository cache."
 	helm repo update
 
 .PHONY: helm-search-repo
 helm-search-repo: ## Search chart repo
-	@echo "Search chart repositories."
+	@echo "==> Search chart repositories."
 	helm search repo $(PROJECT)
 
 # Exercise 04: Dependency Management
@@ -276,13 +322,24 @@ helm-search-repo: ## Search chart repo
 # 	- Dependencies are downloaded.
 # 	- `Chart.lock` is created or updated.
 # 	- Dependencies are present under `charts/`.
+.PHONY : print_dependencies_management_purpose
+print_dependencies_management_purpose: 
+	@echo " ==========================================================================================="
+	@echo " 				'Dependency Management'								       "
+	@echo " ==========================================================================================="
+	@printf '%s\n' \
+		'Purpose: '\
+		'   - Update chart dependencies (Chart.yaml → Chart.lock).' \
+		'   - Build dependencies into charts/ subdirectory.' \
+		'   - Render dev manifests with dependencies included.'
+	@echo " "
 
 .PHONY: helm-dependency-update-in-lockfile
-helm-dependency-update-in-lockfile: ## Donwload or Update dependencies in lockfile
+helm-dependency-update-in-lockfile: print_dependencies_management_purpose ## Donwload or Update dependencies in lockfile
 	helm dependency update $(CHART_DIR)
 
-.PHONY: helm-dependency-build-from-loackfile
-helm-dependency-build-from-loackfile: ## Build dependencies from lockfile
+.PHONY: helm-dependency-build-from-lockfile
+helm-dependency-build-from-lockfile: ## Build dependencies from lockfile
 	helm dependency build $(CHART_DIR)
 
 # Exercise 05: Release Management
@@ -292,35 +349,88 @@ helm-dependency-build-from-loackfile: ## Build dependencies from lockfile
 # 	- Releases exist in their respective namespaces.
 # 	- History shows revisions.
 # 	- Manifest and values reflect what is deployed.
+.PHONY : print_release_management_purpose
+print_release_management_purpose: 
+	@echo " ==========================================================================================="
+	@echo " 				'Release Management'								           "
+	@echo " ==========================================================================================="
+	@printf '%s\n' \
+	' Purpose:' \
+	'   - Install or upgrade dev, staging, and prod releases.' \
+	'   - Inspect dev release history, manifest, and values.'
+	@echo " "
+
+.PHONY: helm-reset-dev-release
+helm-reset-dev-release: ## Delete dev release and dev namespace for a clean reinstall
+	@echo "==> Uninstall dev release"
+	-helm uninstall $(RELEASE_DEV) -n $(NS_DEV) || true
+	@echo "==> Delete dev namespace"
+	-kubectl delete namespace $(NS_DEV) --ignore-not-found=true || true
+	@echo "==> Dev environment cleaned up"
+
+.PHONY: helm-reset-staging-release
+helm-reset-staging-release: ## Delete staging release and staging namespace for a clean reinstall
+	@echo "==> Uninstall staging release"
+	-helm uninstall $(RELEASE_STAGING) -n $(NS_STAGING) || true
+	@echo "==> Delete staging namespace"
+	-kubectl delete namespace $(NS_STAGING) --ignore-not-found=true || true
+	@echo "==> Staging environment cleaned up"
+
+.PHONY: helm-reset-prod-release
+helm-reset-prod-release: ## Delete prod release and prod namespace for a clean reinstall
+	@echo "==> Uninstall prod release"
+	-helm uninstall $(RELEASE_PROD) -n $(NS_PROD) || true
+	@echo "==> Delete prod namespace"
+	-kubectl delete namespace $(NS_PROD) --ignore-not-found=true || true
+	@echo "==> Prod environment cleaned up"
 
 .PHONY: helm-upgrade-install-dev-release-in-namespace
-helm-upgrade-install-dev-release-in-namespace: ## Install or upgrade dev release in-namespace
-	@echo "Install or upgrade dev release in namespace."
-	helm upgrade --install $(RELEASE_DEV) $(CHART_DIR) -f $(CHART_DIR)/values.yaml -f $(DEV_VALUES) -n $(NS_DEV) --create-namespace
+helm-upgrade-install-dev-release-in-namespace: print_release_management_purpose ## Install or upgrade dev release in namespace
+	@echo "==> Checking dev release - Does it exists? if yes then upgrade it."
+	@if helm status $(RELEASE_DEV) -n $(NS_DEV) >/dev/null 2>&1; then \
+		echo "==> Upgrading existing dev release: $(RELEASE_DEV) namespace: $(NS_DEV)"; \
+		helm upgrade $(RELEASE_DEV) $(CHART_DIR) -f $(CHART_DIR)/values.yaml -f $(DEV_VALUES) -n $(NS_DEV); \
+	else \
+		echo "==> Installing new dev release: $(RELEASE_DEV) namespace: $(NS_DEV)"; \
+		helm install $(RELEASE_DEV) $(CHART_DIR) -f $(CHART_DIR)/values.yaml -f $(DEV_VALUES) -n $(NS_DEV) --create-namespace; \
+	fi
+
 
 .PHONY: helm-upgrade-install-staging-in-namespace
 helm-upgrade-install-staging-release-in-namespace: ## Install or upgrade staging release in-namespace
-	@echo "Install or upgrade staging release in namespace."
-	helm upgrade --install $(RELEASE_STAGING) $(CHART_DIR) -f $(CHART_DIR)/values.yaml -f $(STAGING_VALUES) -n $(NS_STAGING) --create-namespace
+	@echo "==> Checking staging release"
+	@if helm status $(RELEASE_STAGING) -n $(NS_STAGING) >/dev/null 2>&1; then \
+		echo "==> Upgrading existing staging release: $(RELEASE_STAGING) namespace: $(NS_STAGING)"; \
+		helm upgrade $(RELEASE_STAGING) $(CHART_DIR) -f $(CHART_DIR)/values.yaml -f $(STAGING_VALUES) -n $(NS_STAGING); \
+	else \
+		echo "==> Installing new staging release: $(RELEASE_STAGING) namespace: $(NS_STAGING)"; \
+		helm install $(RELEASE_STAGING) $(CHART_DIR) -f $(CHART_DIR)/values.yaml -f $(STAGING_VALUES) -n $(NS_STAGING) --create-namespace; \
+	fi
 
 .PHONY: helm-upgrade-install-prod-in-namespace
 helm-upgrade-install-prod-release-in-namespace: ## Install or upgrade prod release in-namespace
-	@echo "Install or upgrade prod release in namespace."
-	helm upgrade --install $(RELEASE_PROD) $(CHART_DIR) -f $(CHART_DIR)/values.yaml -f $(PROD_VALUES) -n $(NS_PROD) --create-namespace
+	@echo "==> Checking prod release"
+	@if helm status $(RELEASE_PROD) -n $(NS_PROD) >/dev/null 2>&1; then \
+		echo "==> Upgrading existing prod release: $(RELEASE_PROD) namespace: $(NS_PROD)"; \
+		helm upgrade $(RELEASE_PROD) $(CHART_DIR) -f $(CHART_DIR)/values.yaml -f $(PROD_VALUES) -n $(NS_PROD); \
+	else \
+		echo "==> Installing new prod release: $(RELEASE_PROD) namespace: $(NS_PROD)"; \
+		helm install $(RELEASE_PROD) $(CHART_DIR) -f $(CHART_DIR)/values.yaml -f $(PROD_VALUES) -n $(NS_PROD) --create-namespace; \
+	fi
 
 .PHONY: helm-history-dev-release-in-namespace
 helm-history-dev-release-in-namespace: ## Show dev release history in-namespace
-	@echo "Show dev release history in namespace."
+	@echo "==> Show dev release history in namespace."
 	helm history $(RELEASE_DEV) -n $(NS_DEV)
 
 .PHONY: helm-get-manifest-dev-release-in-namespace
 helm-get-manifest-dev-release-in-namespace: ## Get dev release manifest in-namespace
-	@echo "Get dev release manifest in-namespace"
+	@echo "==> Get dev release manifest in-namespace"
 	helm get manifest $(RELEASE_DEV) -n $(NS_DEV)
 
 .PHONY: helm-get-values-dev-release-in-namespace
 helm-get-values-dev-release-in-namespace: ## Get dev release values -in-namespace
-	@echo "Get dev release values in-namespace"
+	@echo "==> Get dev release values in-namespace"
 	helm get values $(RELEASE_DEV) -n $(NS_DEV)
 
 # Exercise 06: Diff and Rollback
@@ -331,15 +441,26 @@ helm-get-values-dev-release-in-namespace: ## Get dev release values -in-namespac
 # 	- Upgrade applies a new revision.
 # 	- Rollback restores a previous revision.
 # 	- History confirms the revision sequence.
+.PHONY : print_diff_and_rollback_purpose
+print_diff_and_rollback_purpose: 
+	@echo " ==========================================================================================="
+	@echo " 				'Diff and Rollback'								           "
+	@echo " ==========================================================================================="
+	@printf '%s\n' \
+	' Purpose: '\
+	'  - Show diff for dev release before applying changes.'\
+	'   - Apply a new dev release revision.'\
+	'   - Roll back to a previous revision.'
+	@echo " "
 
 .PHONY: helm-diff-dev-release-change-before-apply-in-namespace
-helm-diff-dev-release-change-before-apply-in-namespace: ## Diff dev release changes before upgrade/apply
-	@echo "Diff dev release changes before upgrade/apply"
+helm-diff-dev-release-change-before-apply-in-namespace: print_diff_and_rollback_purpose ## Diff dev release changes before upgrade/apply
+	@echo "==> Diff dev release changes before upgrade/apply"
 	helm diff upgrade $(RELEASE_DEV) $(CHART_DIR) -f $(DEV_VALUES) -n $(NS_DEV)
 
 .PHONY: helm-rollback-dev-release-to-previous-version-in-namespace
 helm-rollback-dev-release-to-previous-version-in-namespace: ## Roll back dev release to previous version in namespace
-	@echo "Roll back dev release to previous version in namespace"
+	@echo "==> Roll back dev release to previous version in namespace"
 	helm rollback $(RELEASE_DEV) 1 -n $(NS_DEV)
 
 # Exercise 07: Environment and Troubleshooting
@@ -354,10 +475,22 @@ helm-rollback-dev-release-to-previous-version-in-namespace: ## Roll back dev rel
 # | make status-dev              | Show release status.                     |
 # | make test-dev                | Run Helm tests.                          |
 # | make env                     | Show Helm environment variables.  
+.PHONY : print_env_inspection_purpose
+print_env_inspection_purpose: 
+	@echo " ==========================================================================================="
+	@echo " 				'Environment and Troubleshooting'				           "
+	@echo " ==========================================================================================="
+	@printf '%s\n' \
+	' Purpose: '\
+	'   - Inspect Helm environment variables and paths.'\
+	'   - List dev releases.'\
+	'   - Show dev release status.'\
+	'   - Run tests for dev release.'
+	@echo " "
 
 .PHONY: helm-list-dev-releases-in-namespace
 helm-list-dev-releases-in-namespace: ## List releases in dev namespace.
-	@echo "List releases in dev namespace."
+	@echo "==> List releases in dev namespace."
 	helm list -n $(NS_DEV)
 
 .PHONY: helm-show-status-dev-release-in-namespace
@@ -369,6 +502,6 @@ helm-run-tests-for-dev-release-in-namespace: ## Run helm tests for dev release i
 	helm test $(RELEASE_DEV) -n $(NS_DEV) --logs
 
 .PHONY: helm-show-env-variables
-helm-show-env-variables: ## Show Helm environment variables
-	@echo "Show Helm environment variables"
+helm-show-env-variables: print_env_inspection_purpose ## Show Helm environment variables
+	@echo "==> Show Helm environment variables"
 	helm env

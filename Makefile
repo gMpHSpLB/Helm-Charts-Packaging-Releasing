@@ -27,13 +27,23 @@ setup-minikube: ## Ensure Minikube cluster is running with correct profile
 # Wrapper to run dev-focused Helm workflow
 .PHONY: helm-lab-dev
 helm-lab-dev: ## Ensure Minikube, then run dev Helm workflow
+	@echo " >>>>>>>>>>>>>>>>	START	>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>"
 	$(MAKE) setup-minikube
+	@echo " >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>"
 	$(MAKE) -f Makefile_Helm_Packaging_Releasing helm-scaffold-new-chart
+	@echo " >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>"
 	$(MAKE) -f Makefile_Helm_Packaging_Releasing helm-lint-validate-chart
+	@echo " >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>"
 	$(MAKE) -f Makefile_Helm_Packaging_Releasing helm-template-dev
+	@echo " >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>"
 	$(MAKE) -f Makefile_Helm_Packaging_Releasing helm-package-chart-with-version
+	@echo " >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>"
+	$(MAKE) -f Makefile_Helm_Packaging_Releasing helm-reset-dev-release
+	@echo " >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>"
 	$(MAKE) -f Makefile_Helm_Packaging_Releasing helm-upgrade-install-dev-release-in-namespace
+	@echo " >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>"
 	$(MAKE) -f Makefile_Helm_Packaging_Releasing helm-show-status-dev-release-in-namespace
+	@echo " <<<<<<<<<<<<<<<<	END	<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<"
 
 # Wrapper to run all scripts (end-to-end lab)
 .PHONY: helm-lab-all

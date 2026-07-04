@@ -10,7 +10,6 @@ set -euo pipefail
 # How to check output:
 #   - Inspect helm diff output for resource changes.
 #   - Check helm history before and after rollback.
-
 echo "[06] Diff and rollback"
 
 echo "Step 1: Diff dev release changes before upgrade"
@@ -29,3 +28,5 @@ echo "Step 5: Show dev release history after rollback"
 make -f Makefile_Helm_Packaging_Releasing helm-history-dev-release-in-namespace
 
 echo "[06] Completed. Compare history output before and after rollback."
+echo " ==========================================================================================="
+echo " ==========================================================================================="

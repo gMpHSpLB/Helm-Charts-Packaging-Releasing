@@ -26,7 +26,6 @@ fi
 #   - Confirm downloads/ contains the pulled chart.
 #   - Check GHCR UI for the published OCI artifact.
 #   - Review helm show chart/values output from GHCR.
-
 echo "[08] GHCR roundtrip (OCI registry workflow)"
 
 if [[ -f ".secrets" ]]; then
@@ -60,3 +59,5 @@ make -f Makefile_Helm_Packaging_Releasing helm-show-chart-values
 echo "[08] Completed. Verify dist/ and downloads/ contents and GHCR UI."
 
 echo "GHCR roundtrip complete for chart ${PROJECT:-catalog-service} version ${CHART_VERSION:-0.1.0}."
+echo " ==========================================================================================="
+echo " ==========================================================================================="

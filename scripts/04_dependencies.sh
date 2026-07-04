@@ -11,7 +11,6 @@ set -euo pipefail
 #   - Confirm Chart.lock exists and is updated.
 #   - Check charts/catalog-service/charts/ for dependency archives.
 #   - Inspect template output to see dependency resources if applicable.
-
 echo "[04] Dependency management"
 
 echo "Step 1: Update dependencies (helm-dependency-update-in-lockfile)"
@@ -24,3 +23,5 @@ echo "Step 3: Render dev manifests with dependencies (helm-template-dev)"
 make -f Makefile_Helm_Packaging_Releasing helm-template-dev
 
 echo "[04] Completed. Check Chart.lock and charts/ subdirectory for dependencies."
+echo " ==========================================================================================="
+echo " ==========================================================================================="

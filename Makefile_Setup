@@ -109,3 +109,9 @@ enable-minikube-addons: ## enable ingress and metrics-server
 
 	@echo "Verify addons"
 	minikube addons list --profile=k$(MINIKUBE_PROFILE) | grep -E "ingress|metrics"
+
+.PHONY: install-helm-3-18
+install-helm-3-18:
+	bash ./install_helm_3_18.sh
+	helm version
+

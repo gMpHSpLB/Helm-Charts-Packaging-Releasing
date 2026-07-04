@@ -12,7 +12,6 @@ set -euo pipefail
 # How to check output:
 #   - Confirm downloads/ contains the pulled .tgz.
 #   - Observe repo add/update/search output in the terminal.
-
 echo "[03] Registry operations (GHCR roundtrip + repo commands)"
 
 echo "Step 1: Login to GHCR"
@@ -34,3 +33,5 @@ echo "Step 6: Search chart repo"
 make -f Makefile_Helm_Packaging_Releasing helm-search-repo
 
 echo "[03] Completed. Check downloads/ for pulled charts and command output for repo operations."
+echo " ==========================================================================================="
+echo " ==========================================================================================="

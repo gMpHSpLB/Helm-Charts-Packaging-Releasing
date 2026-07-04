@@ -10,7 +10,6 @@ set -euo pipefail
 # How to check output:
 #   - Lint: Scroll for errors/warnings in the helm lint output.
 #   - Template: Inspect the rendered YAML (Deployment, Service, etc.) in the terminal.
-
 echo "[01] Scaffold and lint chart"
 
 echo "Step 1: Ensure chart skeleton exists (helm-scaffold-new-chart)"
@@ -23,3 +22,5 @@ echo "Step 3: Render dev manifests (helm-template-dev)"
 make -f Makefile_Helm_Packaging_Releasing helm-template-dev
 
 echo "[01] Completed. Check lint output for errors and template output for expected resources."
+echo " ==========================================================================================="
+echo " ==========================================================================================="

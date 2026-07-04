@@ -1,5 +1,5 @@
 apiVersion: v2
-name: myapp
+name: myapp-helm-chart
 description: >
   FastAPI microservice with configurable deployment strategy,
   observability, and multi-environment support.

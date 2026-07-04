@@ -150,6 +150,15 @@ ingress:
   #   hosts:
   #     - myapp.example.com
 
+# ── HTTPROUTE (GATEWAY API) ───────────────────────────────────────────────────
+# For future Gateway API implementation
+httpRoute:
+  enabled: false
+  annotations: {}
+  parentRefs: []
+  hostnames: []
+  rules: []
+
 # ── CONFIGURATION ─────────────────────────────────────────────────────────────
 # These become ConfigMap data keys
 config:

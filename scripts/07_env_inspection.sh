@@ -12,7 +12,6 @@ set -euo pipefail
 #   - Review helm env output for cache/config/data directories.
 #   - Check helm list/status output for dev release health.
 #   - Examine test logs for validation of service readiness.
-
 echo "[07] Environment and troubleshooting"
 
 echo "Step 1: Show Helm environment variables"
@@ -28,3 +27,5 @@ echo "Step 4: Run Helm tests for dev release (with logs)"
 make -f Makefile_Helm_Packaging_Releasing helm-run-tests-for-dev-release-in-namespace
 
 echo "[07] Completed. Inspect status and test logs for any issues."
+echo " ==========================================================================================="
+echo " ==========================================================================================="
