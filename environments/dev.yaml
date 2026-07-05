@@ -31,3 +31,17 @@ podDisruptionBudget:
 # No HPA in dev — resource constrained local cluster
 autoscaling:
   enabled: false
+
+postgresql:
+  enabled: true
+
+  auth:
+    username: "dev_user"
+    password: "dev_password"
+    database: "catalog_dev_db"
+
+  primary:
+    persistence:
+      enabled: true
+      size: 1Gi
+      storageClass: ""   # or a dev-specific class if you have one

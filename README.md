@@ -50,3 +50,14 @@ registry workflow.**
     - Chart repository path: ghcr.io/<github-username>/helm-lab.
     - Chart artifact name: catalog-service-<chart-version>.tgz.
     - Authentication: GitHub username + PAT with read:packages and write:packages.
+
+# GitHub Container Registry (GHCR) as OCI artifacts using helm registry
+In this lab, charts are stored in GitHub Container Registry (GHCR) as OCI artifacts using helm registry login, helm push, and helm pull with oci://ghcr.io/... paths. Traditional helm repo add, helm repo update, and helm search repo are only required when using index-based HTTP Helm repositories (for example, public chart repos). Since GHCR is used purely as an OCI registry here, those helm repo commands are optional demos and not part of the main workflow.
+
+# Dependency Management (PostgreSQL subchart)
+This exercise demonstrates Helm’s dependency system using Bitnami PostgreSQL as a subchart. The parent chart (charts/catalog-service/Chart.yaml) declares a postgresql dependency pointing to the Bitnami Helm repository. When we run helm dependency update, Helm reads the dependencies block, downloads the PostgreSQL chart into charts/catalog-service/charts/, and writes a Chart.lock pinning the exact version.
+
+helm dependency build can later rebuild the charts/ directory from Chart.lock, ensuring reproducible releases. With postgresql.enabled: true in values.yaml (or environment-specific values), helm template renders both the catalog service and PostgreSQL resources, illustrating how a parent chart can consume database subcharts in a controlled, versioned way.
+
+# Release Management
+This exercise installs or upgrades the same Helm chart into three isolated Kubernetes namespaces: dev, staging, and prod. It demonstrates release lifecycle operations such as helm install, helm upgrade, helm history, helm get manifest, and helm get values. Unlike the GHCR/OCI exercises, this step does not publish or retrieve chart packages from a registry; instead, it consumes the packaged chart and deploys it into the cluster.

@@ -35,10 +35,11 @@ keywords:
   - api
   - microservice
 
-# Dependencies: external charts this chart depends on
-# Uncomment when adding sub-charts (e.g. postgresql)
-# dependencies:
-#   - name: postgresql
-#     version: "12.x.x"
-#     repository: "https://charts.bitnami.com/bitnami"
-#     condition: postgresql.enabled
+# Dependencies: external charts this chart depends on.
+#   - Use an actual version you know exists (you can check Bitnami’s chart versions with helm search repo bitnami/postgresql).
+#   - The condition: postgresql.enabled lets you toggle the subchart on/off via values.yaml.
+dependencies:
+  - name: postgresql
+    version: "18.7.11"
+    repository: "https://charts.bitnami.com/bitnami"
+    condition: postgresql.enabled

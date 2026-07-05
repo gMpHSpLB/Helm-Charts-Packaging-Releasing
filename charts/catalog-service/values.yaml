@@ -238,4 +238,27 @@ extraVolumeMounts: []
 initContainers: []
 # - name: wait-for-db
 #   image: busybox:1.35
-#   command: ['sh', '-c', 'until nc -z postgres 5432; do sleep 2; done'] 
+#   command: ['sh', '-c', 'until nc -z postgres 5432; do sleep 2; done']
+
+# Global PostgreSQL settings (applied to all environments)
+postgresql:
+  enabled: true
+
+  auth:
+    username: "app_user"
+    password: "app_password"
+    database: "catalog_db"
+
+  primary:
+    persistence:
+      enabled: true
+      size: 1Gi
+      storageClass: ""   # default storage class, override per env if needed
+
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 200m
+      memory: 512Mi

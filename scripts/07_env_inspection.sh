@@ -1,6 +1,21 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+RED="\033[1;31m"
+GREEN="\033[1;32m"
+YELLOW="\033[1;33m"
+RESET="\033[0m"
+
+pause() {
+  local CYAN="\033[1;36m"
+  local RESET="\033[0m"
+
+  echo
+  # -e lets echo interpret \033 as an escape for color
+  echo -e "${CYAN}Press ENTER to run the next step...${RESET}"
+  read -r _
+  echo
+}
 # Exercise 07: Environment and Troubleshooting
 # Script: 07_env_inspection.sh
 # Purpose:
@@ -12,20 +27,22 @@ set -euo pipefail
 #   - Review helm env output for cache/config/data directories.
 #   - Check helm list/status output for dev release health.
 #   - Examine test logs for validation of service readiness.
-echo "[07] Environment and troubleshooting"
-
-echo "Step 1: Show Helm environment variables"
+echo -e "${YELLOW}[07] Environment and troubleshooting"
+make -f Makefile_Helm_Packaging_Releasing print_env_inspection_purpose
+pause
+echo -e "${GREEN} Step 1: Show Helm environment variables"
+pause
 make -f Makefile_Helm_Packaging_Releasing helm-show-env-variables
 
-echo "Step 2: List dev releases"
+echo -e "${GREEN} Step 2: List dev releases"
+pause
 make -f Makefile_Helm_Packaging_Releasing helm-list-dev-releases-in-namespace
 
-echo "Step 3: Show dev release status"
+echo -e "${GREEN} Step 3: Show dev release status"
+pause
 make -f Makefile_Helm_Packaging_Releasing helm-show-status-dev-release-in-namespace
 
-echo "Step 4: Run Helm tests for dev release (with logs)"
-make -f Makefile_Helm_Packaging_Releasing helm-run-tests-for-dev-release-in-namespace
-
-echo "[07] Completed. Inspect status and test logs for any issues."
+echo -e "${YELLOW}[07] Completed. Inspect status and test logs for any issues."
 echo " ==========================================================================================="
 echo " ==========================================================================================="
+pause

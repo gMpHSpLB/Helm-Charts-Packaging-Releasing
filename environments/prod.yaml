@@ -67,3 +67,17 @@ affinity:
           matchLabels:
             app.kubernetes.io/name: myapp
         topologyKey: kubernetes.io/hostname
+
+postgresql:
+  enabled: true
+
+  auth:
+    username: "prod_user"
+    password: "prod_password"
+    database: "catalog_prod_db"
+
+  primary:
+    persistence:
+      enabled: true
+      size: 5Gi
+      storageClass: ""   # prod storage class if you use one

@@ -18,13 +18,12 @@ make -f Makefile_Setup ensure-minikube
 make -f Makefile_Setup enable-minikube-addons
 
 ./scripts/01_scaffold_lint.sh
-./scripts/02_package_publish.sh
+./scripts/02_package.sh
 ./scripts/03_registry_roundtrip.sh
 ./scripts/04_dependencies.sh
-./scripts/05_release_dev.sh
+./scripts/05_release.sh
 ./scripts/06_diff_and_rollback.sh
 ./scripts/07_env_inspection.sh
-./scripts/08_ghcr_roundtrip.sh
 
 echo "[ALL] All Helm lab exercises completed."
 echo "Use 'kubectl get all -n catalog-dev' and similar commands to explore the resulting cluster state."

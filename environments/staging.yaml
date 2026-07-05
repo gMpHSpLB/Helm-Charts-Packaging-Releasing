@@ -41,3 +41,17 @@ autoscaling:
 
 networkPolicy:
   enabled: true
+
+postgresql:
+  enabled: true
+
+  auth:
+    username: "staging_user"
+    password: "staging_password"
+    database: "catalog_staging_db"
+
+  primary:
+    persistence:
+      enabled: true
+      size: 2Gi
+      storageClass: ""   # staging storage class if needed
